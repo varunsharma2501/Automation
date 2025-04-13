@@ -2,7 +2,7 @@ const openai = require('../config/openai.config');
 
 const fetchCityInfo = async (city) => {
   const prompt = `
-  Give me a list of all the installers and upfitters for police cars in ${city}. 
+  Give me a list of 50 installers and upfitters for police cars in ${city}.
   Return the response strictly as a JSON array of objects with the format:
   [{ "name": "...", "location": "...", "overview": "...", "contact": "...", "companyUrl": "..." }]
   Do not wrap the JSON in quotes or markdown formatting.

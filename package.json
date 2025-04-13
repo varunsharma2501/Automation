@@ -13,6 +13,7 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "googleapis": "^148.0.0",
     "json2csv": "^6.0.0-alpha.2",
     "openai": "^4.93.0"
   }

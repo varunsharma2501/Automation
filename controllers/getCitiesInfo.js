@@ -1,5 +1,5 @@
 const { fetchCityInfo } = require("../services/openai.service");
-const generateCSV = require("../services/createCSV");
+const writeToSheet = require("../services/writeToSheet");
 
 const BATCH_SIZE = 10;
 
@@ -38,7 +38,9 @@ const generateInfoForCities = async (req, res) => {
       await wait(500); // Wait 500ms between batches (adjust if needed)
     }
 
-    generateCSV(responses);
+    const sheetResponse = await writeToSheet(responses);
+
+    console.log("🧾 Google Sheet Updated:", sheetResponse);
     res.status(200).json({ data: responses });
 
   } catch (error) {
