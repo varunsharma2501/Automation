@@ -76,7 +76,7 @@ const search5 = `For each upfitter in the list below, add the following addition
 - Location (City, State or full address)
 - A short, real description about what the company does
 
-Please avoid guessing or making up any information. If a field is not available, set its value to "NA".
+If a field is not available, set its value to "NA".
 
 At the end, return the final list in the following JSON format:
 
