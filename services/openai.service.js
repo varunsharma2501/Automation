@@ -14,7 +14,7 @@ const response1 = await openai.chat.completions.create({
 });
 
 let responseText = response1.choices[0].message.content;
-console.log('Raw Response from Step 1:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 1:', responseText);  // Log the raw response
 
 // Step 2: Filter out places that don't do installations
 const search2 = `
@@ -31,7 +31,7 @@ const response2 = await openai.chat.completions.create({
 });
 
 responseText = response2.choices[0].message.content;
-console.log('Raw Response from Step 2:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 2:', responseText);  // Log the raw response
 
 
 // Step 3: Filter only for companies that do fleet and commercial installations
@@ -49,7 +49,7 @@ const response3 = await openai.chat.completions.create({
 });
 
 responseText = response3.choices[0].message.content;
-console.log('Raw Response from Step 3:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 3:', responseText);  // Log the raw response
 
 
 // Step 4: Filter out companies that only sell products and don't do installations
@@ -67,7 +67,7 @@ const response4 = await openai.chat.completions.create({
 });
 
 responseText = response4.choices[0].message.content;
-console.log('Raw Response from Step 4:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 4:', responseText);  // Log the raw response
 
 // Step 5: Add phone numbers, owner names, location, and a short description
 const search5 = `For each upfitter in the list below, add the following additional information **only if available**:
@@ -103,7 +103,7 @@ const response5 = await openai.chat.completions.create({
 });
 
 responseText = response5.choices[0].message.content;
-console.log('Raw Response from Step 5:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 5:', responseText);  // Log the raw response
 
 try {
   const parsed = JSON.parse(responseText);
@@ -125,7 +125,7 @@ const response6 = await openai.chat.completions.create({
 });
 
 responseText = response6.choices[0].message.content;
-console.log('Raw Response from Step 6:', responseText);  // Log the raw response
+// console.log('Raw Response from Step 6:', responseText);  // Log the raw response
 
 try {
   // Parse the raw response
