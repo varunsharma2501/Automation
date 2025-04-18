@@ -47,7 +47,7 @@ async function processCSV(inputFilePath, outputValidPath, outputInvalidPath) {
 
 // Go up one level from the current script folder to access ExcelFiles
 const basePath = path.join(__dirname, '..', 'Excels');
-const inputFilePath = path.join(basePath, 'Leads-Input.csv');
+const inputFilePath = path.join(basePath, 'Upfitters - Latest-Sheet.csv');
 const outputValidPath = path.join(basePath, 'validCompanies.csv');
 const outputInvalidPath = path.join(basePath, 'invalidCompanies.csv');
 

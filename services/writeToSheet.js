@@ -13,10 +13,10 @@ const writeToSheet = async (data) => {
   const sheets = google.sheets({ version: "v4", auth: client });
 
   const spreadsheetId = process.env.SPREADSHEET_ID;
-  const sheetName = "Latest-Sheet";
+  const sheetName = "Varun-Testing";
 
   // Convert JSON to 2D array
-  const headers = ["name", "phone", "ownerName", "description","location","companyUrl"];
+  const headers = ["name", "phone","companyUrl","isCompanyUrlValid", "ownerName", "description","location"];
   const values = data.map((row) => headers.map((key) => row[key] || ""));
 
   // Clear the existing content
