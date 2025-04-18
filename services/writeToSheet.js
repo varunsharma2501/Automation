@@ -16,7 +16,7 @@ const writeToSheet = async (data) => {
   const sheetName = "Latest-Sheet";
 
   // Convert JSON to 2D array
-  const headers = ["name", "location", "overview", "contact", "companyUrl"];
+  const headers = ["name", "phone", "ownerName", "description","location","companyUrl"];
   const values = data.map((row) => headers.map((key) => row[key] || ""));
 
   // Clear the existing content

@@ -14,7 +14,7 @@ const response1 = await openai.chat.completions.create({
 });
 
 let responseText = response1.choices[0].message.content;
-// console.log('Raw Response from Step 1:', responseText);  // Log the raw response
+console.log('Raw Response from Step 1:', responseText);  // Log the raw response
 
 // Step 2: Filter out places that don't do installations
 const search2 = `
@@ -31,7 +31,7 @@ const response2 = await openai.chat.completions.create({
 });
 
 responseText = response2.choices[0].message.content;
-// console.log('Raw Response from Step 2:', responseText);  // Log the raw response
+console.log('Raw Response from Step 2:', responseText);  // Log the raw response
 
 
 // Step 3: Filter only for companies that do fleet and commercial installations
@@ -49,7 +49,7 @@ const response3 = await openai.chat.completions.create({
 });
 
 responseText = response3.choices[0].message.content;
-// console.log('Raw Response from Step 3:', responseText);  // Log the raw response
+console.log('Raw Response from Step 3:', responseText);  // Log the raw response
 
 
 // Step 4: Filter out companies that only sell products and don't do installations
@@ -67,34 +67,29 @@ const response4 = await openai.chat.completions.create({
 });
 
 responseText = response4.choices[0].message.content;
-// console.log('Raw Response from Step 4:', responseText);  // Log the raw response
+console.log('Raw Response from Step 4:', responseText);  // Log the raw response
 
-// Step 5: Add phone numbers, owner names, location, and a short description
-const search5 = `For each upfitter in the list below, add the following additional information **only if available**:
-- Phone number
-- Owner name
-- Location (City, State or full address)
-- A short, real description about what the company does
+const search5 = `For each company in the list below, search online and try to find:
+- A working phone number
+- The owner or founder's name
 
-If a field is not available, set its value to "NA".
+Use publicly available data from directories, official websites, or LinkedIn.
 
-At the end, return the final list in the following JSON format:
+If a field cannot be found after a reasonable search, then return "NA". Avoid guessing or making up names.
 
+Return the results in clean JSON format like this:
 [
-  { 
-    "name": "Upfitter Name", 
-    "phone": "Phone Number or NA", 
-    "ownerName": "Owner Name or NA", 
-    "location": "City, State or Address or NA", 
-    "description": "Short actual description or NA"
+  {
+    "name": "Upfitter Name",
+    "phone": "Phone Number or NA",
+    "ownerName": "Owner Name or NA"
   }
 ]
 
-Only return a clean JSON array — no extra formatting, bullet points, or explanations.
+Only respond with a clean JSON array. No explanation, markdown, or extra notes.
 
 List:
-${responseText}
-`;
+${responseText}`;
 
 
 const response5 = await openai.chat.completions.create({
@@ -103,21 +98,35 @@ const response5 = await openai.chat.completions.create({
 });
 
 responseText = response5.choices[0].message.content;
-// console.log('Raw Response from Step 5:', responseText);  // Log the raw response
+console.log("Step 5 response:", responseText);
 
 try {
-  const parsed = JSON.parse(responseText);
-  upfitters = parsed;
+  upfitters = JSON.parse(responseText);
 } catch (err) {
   console.error('Error parsing response from Step 5:', err.message);
 }
 
-// Step 6: Add clickable URLs to each record
-const search6 = `From the list below, for each company, please provide a new field "companyUrl" that contains ONLY the raw URL (without any HTML tags). 
+const search6 = `For each company in the list below, search online (via directories, maps, websites, LinkedIn) and try to find:
+- Location (City, State or full address — whichever is available)
+- A short, real description of what the company does (based on website or online profiles)
 
-List:
-${JSON.stringify(upfitters, null, 2)}
-`;
+If either field cannot be confidently identified, use "NA" — but only if truly unavailable.
+
+Format:
+[
+  {
+    "name": "Upfitter Name",
+    "phone": "Phone Number or NA",
+    "ownerName": "Owner Name or NA",
+    "location": "City, State or Address or NA",
+    "description": "Short actual description or NA"
+  }
+]
+
+Respond only with the clean JSON. No markdown or extra text.
+
+List: ${JSON.stringify(upfitters, null, 2)}`;
+
 
 const response6 = await openai.chat.completions.create({
   model: 'gpt-3.5-turbo',
@@ -125,22 +134,58 @@ const response6 = await openai.chat.completions.create({
 });
 
 responseText = response6.choices[0].message.content;
-// console.log('Raw Response from Step 6:', responseText);  // Log the raw response
+console.log("Step 6 response:", responseText);
 
 try {
-  // Parse the raw response
-  let parsed = JSON.parse(responseText);
-
-  // Clean up any HTML tags if needed (not needed if OpenAI responds correctly)
-  parsed = parsed.map(upfitter => ({
-    ...upfitter,
-    companyUrl: upfitter.companyUrl.replace(/<[^>]+>/g, '') // Remove any remaining HTML tags
-  }));
-
-  upfitters = parsed;
+  upfitters = JSON.parse(responseText);
 } catch (err) {
   console.error('Error parsing response from Step 6:', err.message);
 }
+
+
+const search7 = `For each company in the list below, find their official website (home page or best match). Return only:
+- The raw, clickable URL (e.g., "https://example.com")
+
+Do not wrap the URL in markdown or HTML.
+
+If no website is found after reasonable searching, use "NA".
+
+Return in this format:
+[
+  {
+    "name": "Upfitter Name",
+    "phone": "Phone Number or NA",
+    "ownerName": "Owner Name or NA",
+    "location": "City, State or Address or NA",
+    "description": "Short actual description or NA",
+    "companyUrl": "URL or NA"
+  }
+]
+
+Only respond with the valid JSON array.
+
+List: ${JSON.stringify(upfitters, null, 2)}`;
+
+
+const response7 = await openai.chat.completions.create({
+  model: 'gpt-3.5-turbo',
+  messages: [{ role: 'user', content: search7 }],
+});
+
+responseText = response7.choices[0].message.content;
+console.log("Step 7 response:", responseText);
+
+try {
+  upfitters = JSON.parse(responseText);
+  // Just in case: strip HTML tags from the URL
+  upfitters = upfitters.map(u => ({
+    ...u,
+    companyUrl: u.companyUrl.replace(/<[^>]+>/g, '')
+  }));
+} catch (err) {
+  console.error('Error parsing response from Step 7:', err.message);
+}
+
 
 
 return upfitters.map(upfitter => ({
