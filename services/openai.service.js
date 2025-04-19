@@ -17,7 +17,6 @@ const cleanJson = (text) => {
   }
 };
 
-
 // Optional delay function to avoid rate limiting
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -26,36 +25,55 @@ const fetchCityInfo = async (city) => {
   try {
     let upfitters = [];
 
-    const improvedPrompt = `
-Act as a commercial vehicle installation researcher. Try to generate a list of 20 verified vehicle upfitters and installers in ${city} that work on police and emergency vehicles. Use the following parameters:
-
-Exclusion Criteria:
-- Remove any companies without explicit installation capabilities
-- Eliminate firms focused only on parts sales/repairs without installation services
-
-Inclusion Requirements:
-- Prioritize companies with 'fleet installation' or 'commercial upfitting' in service descriptions
-- Include only businesses with active websites/LinkedIn profiles
-
-Important:
-1. Extract ONLY from: Google Maps and Google Search, Yellow Pages, Yelp, LinkedIn Company Search, and state business registries. Include source abbreviations in parentheses after each data point. Do not add fake or made-up company names just to match the count — include only real, verifiable businesses.
-2. Return the response as a JavaScript array of objects.
-3. Each object should have the following fields: 
-   - name 
-   - services 
-   - website 
-   - source 
-4.If not able to find 20 companies, return as many as you can find.
-
-   Return only the raw JSON array with no markdown, code block, or language formatting.
-`;
-
-    const initialResponse = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
       model: 'gpt-4o',
-      messages: [{ role: 'user', content: improvedPrompt }],
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content: `
+    You are a professional commercial vehicle installation researcher.
+    
+    Your tasks must follow these rules:
+    - Only include real and verifiable companies. Never fabricate company names or websites.
+    - Only include companies with active installation capabilities.
+    - Always return a raw JavaScript array of JSON objects, without any markdown, code block formatting, explanations, or commentary.
+    - Format the response strictly as: [
+      { name: "...", services: "...", website: "...", source: [...] },
+      ...
+    ]
+    `
+        },
+        {
+          role: 'user',
+          content: `
+    Find up to 20 verified vehicle upfitters and installers in ${city} that specialize in police and emergency vehicles.
+    
+    Exclusion Criteria:
+    - Exclude companies that only sell parts or do repairs without installation
+    - Exclude those without explicit installation services
+    - Exclude any company without a working website or LinkedIn profile
+    
+    Inclusion Criteria:
+    - Prioritize businesses with 'fleet installation' or 'commercial upfitting' in their descriptions
+    
+    Use only trusted sources:
+    - Google Maps, Google Search, Yelp, Yellow Pages, LinkedIn Company Pages, or state registries
+    - Add the source in parentheses next to each data point (e.g., "LinkedIn", "Google Maps")
+    
+    Each object in the array should include:
+    - name
+    - services
+    - website
+    - source (as an array of strings)
+    If fewer than 20 companies match, return as many as you can find.
+    `
+        }
+      ]
     });
+    
 
-    const responseText = initialResponse.choices[0].message.content;
+    const responseText = response.choices[0].message.content;
     upfitters = cleanJson(responseText) || [];
 
     // console.log(`✅ Found ${upfitters.length} upfitters in ${city}\n`);
@@ -74,32 +92,70 @@ Here is the entry:
 ${JSON.stringify(companyData, null, 2)}
 `;
 
+
+const enrichmentSystemPrompt = `
+You are a professional business data researcher.
+
+Guidelines:
+- Search ONLY on Google, LinkedIn, Yellow Pages, Yelp, Google Maps, or state business registries.
+- Never fabricate or guess any information.
+- If data is not verifiable, return "NA" for that field.
+- Your response must be a raw, clean JSON object. Do not include markdown, code blocks, or any explanation.
+- Format strictly as: {
+  name: "...",
+  services: "...",
+  website: "...",
+  source: [...],
+  contactDetails: "...",
+  location: "..."
+}
+`;
+
+const enrichUserPrompt = (companyData) => `
+You will receive one verified commercial vehicle upfitter/installer entry.
+
+Please enrich the object by adding:
+- "contactDetails": Phone number or email
+- "location": City, State
+
+Only use publicly verifiable sources. Do not generate fake data.
+
+Here is the entry:
+${JSON.stringify(companyData, null, 2)}
+`;
+
+
     const enrichedArray = [];
 
     for (const company of upfitters) {
       try {
-        const prompt = enrichPrompt(company);
-
+        const prompt = enrichUserPrompt(company);
+    
         const enrichmentResponse = await openai.chat.completions.create({
           model: 'gpt-4o',
-          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          messages: [
+            { role: 'system', content: enrichmentSystemPrompt },
+            { role: 'user', content: prompt }
+          ]
         });
-
+    
         const enrichedText = enrichmentResponse.choices[0].message.content;
         const enrichedCompany = cleanJson(enrichedText);
-
+    
         if (enrichedCompany) {
           enrichedArray.push(enrichedCompany);
           // console.log(`✅ Enriched: ${enrichedCompany.name}`);
         } else {
           console.warn(`⚠️ Skipped due to invalid format: ${company.name}`);
         }
-
-        await wait(1000); // throttle between requests (adjust if needed)
+    
+        await wait(1000); // optional throttle
       } catch (error) {
         console.error(`❌ Failed enrichment for ${company.name}:`, error.message);
       }
     }
+    
 
     // console.log("\n🎉 Final Enriched Array:", enrichedArray);
     return enrichedArray;
@@ -112,10 +168,10 @@ ${JSON.stringify(companyData, null, 2)}
 
 
 // Example function call to test
-(async () => {
-  const city = 'New York City, NY';
-  const upfitters = await fetchCityInfo(city);
-  console.log('\n✅ Upfitters in', city, ':', upfitters);
-})();
+// (async () => {
+//   const city = 'New York City, NY';
+//   const upfitters = await fetchCityInfo(city);
+//   console.log('\n✅ Upfitters in', city, ':', upfitters);
+// })();
 
 module.exports = { fetchCityInfo };
