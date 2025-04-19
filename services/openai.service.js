@@ -101,7 +101,7 @@ ${JSON.stringify(companyData, null, 2)}
       }
     }
 
-    // console.log("\n🎉 Final Enriched Array:", enrichedArray);
+    console.log("\n🎉 Final Enriched Array:", enrichedArray);
     return enrichedArray;
 
   } catch (err) {
@@ -112,10 +112,10 @@ ${JSON.stringify(companyData, null, 2)}
 
 
 // Example function call to test
-// (async () => {
-//   const city = 'New York City, NY';
-//   const upfitters = await fetchCityInfo(city);
-//   console.log('\n✅ Upfitters in', city, ':', upfitters);
-// })();
+(async () => {
+  const city = 'New York City, NY';
+  const upfitters = await fetchCityInfo(city);
+  console.log('\n✅ Upfitters in', city, ':', upfitters);
+})();
 
 module.exports = { fetchCityInfo };

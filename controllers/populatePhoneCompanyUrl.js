@@ -2,7 +2,7 @@ const openai = require('../config/openai.config');
 
 const updateMissingInfo = async (responses) => {
   for (const item of responses) {
-    if (item.phone === 'NA' && item.companyUrl === 'NA') {
+    if (item.contactDetails === 'NA' && item.website === 'NA') {
       const prompt = `Find the phone number and company website URL for "${item.name}". Return only a valid JSON object with exactly two keys: "phone" and "companyUrl". Do not include any explanation, markdown, or extra text.`;
 
       try {
@@ -17,11 +17,11 @@ const updateMissingInfo = async (responses) => {
           const parsed = JSON.parse(content);
 
           if (parsed.phone && parsed.phone !== 'NA') {
-            item.phone = parsed.phone.trim();
+            item.contactDetails = parsed.phone.trim();
           }
 
           if (parsed.companyUrl && parsed.companyUrl !== 'NA') {
-            item.companyUrl = parsed.companyUrl.trim();
+            item.website = parsed.companyUrl.trim();
           }
         } catch (parseErr) {
           console.error(`JSON parse error for ${item.name}:`, parseErr.message, '\nRaw GPT response:', content);

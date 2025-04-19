@@ -23,7 +23,7 @@ async function filterResponsesByValidURL(responses) {
   const filtered = [];
 
   for (const entry of responses) {
-    const isValid = await isValidURL(entry.companyUrl);
+    const isValid = await isValidURL(entry.website);
     if (isValid) {
       filtered.push(entry);
     } else {
@@ -36,7 +36,7 @@ async function filterResponsesByValidURL(responses) {
 
 const validateResponsesByCompanyUrl = async (responses) => {
   for (const item of responses) {
-    const url = item.companyUrl;
+    const url = item.website;
 
     if (url && url !== "NA") {
       const prompt = `Visit the website: ${url}
