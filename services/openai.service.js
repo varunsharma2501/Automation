@@ -8,7 +8,7 @@ const cleanJson = (text) => {
       .replace(/```(?:json|javascript)?/gi, '') // remove opening triple backticks with optional lang
       .replace(/```/g, '')                      // remove closing triple backticks
       .trim();
-    console.log("cleaned", cleaned); // helpful for debugging
+    // console.log("cleaned", cleaned); // helpful for debugging
     return JSON.parse(cleaned);
   } catch (err) {
     console.error("JSON parse failed:", err.message);
@@ -27,7 +27,7 @@ const fetchCityInfo = async (city) => {
     let upfitters = [];
 
     const improvedPrompt = `
-Act as a commercial vehicle installation researcher. Generate a complete list of all verified vehicle upfitters and installers in ${city} that work on police and emergency vehicles. Use the following parameters:
+Act as a commercial vehicle installation researcher. Try to generate a list of 20 verified vehicle upfitters and installers in ${city} that work on police and emergency vehicles. Use the following parameters:
 
 Exclusion Criteria:
 - Remove any companies without explicit installation capabilities
@@ -45,6 +45,7 @@ Important:
    - services 
    - website 
    - source 
+4.If not able to find 20 companies, return as many as you can find.
 
    Return only the raw JSON array with no markdown, code block, or language formatting.
 `;
@@ -57,7 +58,7 @@ Important:
     const responseText = initialResponse.choices[0].message.content;
     upfitters = cleanJson(responseText) || [];
 
-    console.log(`✅ Found ${upfitters.length} upfitters in ${city}\n`);
+    // console.log(`✅ Found ${upfitters.length} upfitters in ${city}\n`);
 
     // Enrichment prompt template
     const enrichPrompt = (companyData) => `
@@ -89,7 +90,7 @@ ${JSON.stringify(companyData, null, 2)}
 
         if (enrichedCompany) {
           enrichedArray.push(enrichedCompany);
-          console.log(`✅ Enriched: ${enrichedCompany.name}`);
+          // console.log(`✅ Enriched: ${enrichedCompany.name}`);
         } else {
           console.warn(`⚠️ Skipped due to invalid format: ${company.name}`);
         }
@@ -100,7 +101,7 @@ ${JSON.stringify(companyData, null, 2)}
       }
     }
 
-    console.log("\n🎉 Final Enriched Array:", enrichedArray);
+    // console.log("\n🎉 Final Enriched Array:", enrichedArray);
     return enrichedArray;
 
   } catch (err) {
