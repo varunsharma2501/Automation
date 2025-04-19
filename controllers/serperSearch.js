@@ -150,11 +150,11 @@ const processUpfitterSearchResults = async (query) => {
   try {
     // Step 1: Get search results from Serper API
     const organicArray = await getSearchResults(query);
-    console.log(`Organic array from serper length ${organicArray.length}: ${JSON.stringify(organicArray,null,2)}`);
+    // console.log(`Organic array from serper length ${organicArray.length}: ${JSON.stringify(organicArray,null,2)}`);
 
     // Step 2: Filter relevant upfitter links based on GPT classification
     const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
-    console.log(`Filtered organic array length ${relevantUpfitters.length} ${JSON.stringify(relevantUpfitters,null,2)}`);
+    // console.log(`Filtered organic array length ${relevantUpfitters.length} ${JSON.stringify(relevantUpfitters,null,2)}`);
     // Step 3: Scrape website data and extract details using GPT
     const finalResults = [];
     for (const result of relevantUpfitters) {
@@ -170,7 +170,7 @@ const processUpfitterSearchResults = async (query) => {
       // Push the details to the final results array
       finalResults.push(companyDetails);
     }
-    console.log("Final results after scraping and GPT extraction:", JSON.stringify(finalResults,null,2));
+    // console.log("Final results after scraping and GPT extraction:", JSON.stringify(finalResults,null,2));
     return finalResults;
   } catch (error) {
     console.error('Error processing upfitter search results:', error);

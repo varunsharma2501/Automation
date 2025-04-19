@@ -3,6 +3,7 @@ const openai = require('../config/openai.config');
 const updateMissingInfo = async (responses) => {
   for (const item of responses) {
     if (item.contactDetails === 'NA' && item.website === 'NA') {
+      console.log("RETRY")
       const prompt = `Find the phone number and company website URL for "${item.name}". Return only a valid JSON object with exactly two keys: "phone" and "companyUrl". Do not include any explanation, markdown, or extra text.`;
 
       try {
