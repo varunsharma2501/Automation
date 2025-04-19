@@ -50,7 +50,7 @@ const generateInfoForCities = async (req, res) => {
     console.log("Opening Companyurls are",responses.length)
     responses=await validateResponsesByCompanyUrl(responses);
     console.log("final responses after marking irrelevant urls",responses.length)
-    const sheetResponse = await writeToSheet(responses);
+    const sheetResponse = await writeToSheet(responses,"Latest-Upfitters-ChatGpt");
 
     console.log("🧾 Google Sheet Updated:", sheetResponse);
     res.status(200).json({ data: responses });

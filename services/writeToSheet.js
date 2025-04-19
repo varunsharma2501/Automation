@@ -2,7 +2,7 @@ const { google } = require("googleapis");
 const path = require("path");
 const { GoogleAuth } = require("google-auth-library");
 
-const writeToSheet = async (data) => {
+const writeToSheet = async (data, sheetName) => {
   const auth = new GoogleAuth({
     keyFile: path.join(__dirname, "..", "config", "service-account.json"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -13,7 +13,6 @@ const writeToSheet = async (data) => {
   const sheets = google.sheets({ version: "v4", auth: client });
 
   const spreadsheetId = process.env.SPREADSHEET_ID;
-  const sheetName = "Varun-Testing";
 
   // Convert JSON to 2D array
   const headers = ["name", "phone","companyUrl","isCompanyUrlValid", "ownerName", "description","location"];

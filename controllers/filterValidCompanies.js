@@ -1,5 +1,5 @@
-const axios = require('axios');
-const openai = require('../config/openai.config');
+const axios = require("axios");
+const openai = require("../config/openai.config");
 
 /**
  * Checks if a URL is syntactically and actually valid (responds within timeout).
@@ -34,12 +34,11 @@ async function filterResponsesByValidURL(responses) {
   return filtered;
 }
 
-
 const validateResponsesByCompanyUrl = async (responses) => {
   for (const item of responses) {
     const url = item.companyUrl;
 
-    if (url && url !== 'NA') {
+    if (url && url !== "NA") {
       const prompt = `Visit the website: ${url}
 Based on the information available on the site, determine if the company meets ALL the following criteria:
 1. They perform installation or upfitting services specifically for police or emergency vehicles.
@@ -50,26 +49,41 @@ Return only a JSON object with a single key "isCompanyUrlValid" which should be 
 
       try {
         const response = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
         });
 
         const content = response.choices[0].message.content;
 
         try {
-          const parsed = JSON.parse(content);
-          item.isCompanyUrlValid = parsed.isCompanyUrlValid === 'valid' ? 'valid' : 'invalid';
-        } catch (parseErr) {
-          console.error(`JSON parse error for URL: ${url}`, parseErr.message, '\nRaw GPT response:', content);
-          item.isCompanyUrlValid = 'invalid'; // default fallback
-        }
+          let cleaned = content.trim();
 
+          // Remove markdown code block if it exists
+          if (cleaned.startsWith("```")) {
+            cleaned = cleaned
+              .replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1")
+              .trim();
+          }
+
+          const parsed = JSON.parse(cleaned);
+          item.isCompanyUrlValid =
+            parsed.isCompanyUrlValid === "valid" ? "valid" : "invalid";
+          //
+        } catch (parseErr) {
+          console.error(
+            `JSON parse error for URL: ${url}`,
+            parseErr.message,
+            "\nRaw GPT response:",
+            content
+          );
+          item.isCompanyUrlValid = "invalid"; // default fallback
+        }
       } catch (err) {
         console.error(`OpenAI error for ${url}:`, err.message);
-        item.isCompanyUrlValid = 'invalid';
+        item.isCompanyUrlValid = "invalid";
       }
     } else {
-      item.isCompanyUrlValid = 'invalid';
+      item.isCompanyUrlValid = "invalid";
     }
   }
 
@@ -78,5 +92,5 @@ Return only a JSON object with a single key "isCompanyUrlValid" which should be 
 module.exports = {
   isValidURL,
   filterResponsesByValidURL,
-  validateResponsesByCompanyUrl
+  validateResponsesByCompanyUrl,
 };
