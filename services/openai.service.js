@@ -47,7 +47,7 @@ const fetchCityInfo = async (city) => {
         {
           role: 'user',
           content: `
-    Find up to 20 verified vehicle upfitters and installers in ${city},US that specialize in police and emergency vehicles.
+    Find up to 20 verified vehicle upfitters and installers located specifically in ${city}, US that specialize in police and emergency vehicles. Only include companies that clearly list their services in ${city}, and exclude any results outside this city.
     
     Exclusion Criteria:
     - Exclude companies that only sell parts or do repairs without installation
