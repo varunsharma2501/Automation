@@ -47,7 +47,7 @@ const fetchCityInfo = async (city) => {
         {
           role: 'user',
           content: `
-    Find up to 20 verified vehicle upfitters and installers located specifically in ${city}, US that specialize in police and emergency vehicles. Only include companies that clearly list their services in ${city}, and exclude any results outside this city.
+    Find list of 20 verified vehicle upfitters and installers located specifically in ${city}, US that specialize in police and emergency vehicles. Only include companies that clearly list their services in ${city}, and exclude any results outside this city.
     
     Exclusion Criteria:
     - Exclude companies that only sell parts or do repairs without installation
@@ -72,25 +72,14 @@ const fetchCityInfo = async (city) => {
       ]
     });
     
-
+    
     const responseText = response.choices[0].message.content;
+    console.log("RESPONSE-TEXT", responseText)
     upfitters = cleanJson(responseText) || [];
 
     // console.log(`✅ Found ${upfitters.length} upfitters in ${city}\n`);
 
     // Enrichment prompt template
-    const enrichPrompt = (companyData) => `
-You're a business data researcher. I will give you one verified commercial vehicle upfitter/installers entry. Your task is:
-
-1. Use the available data to search ONLY on Google, LinkedIn, Yellow Pages, Yelp, Google Maps, or state business registries.
-2. Add the following fields:
-   - "contactDetails": (Phone number or email of the company. If not found, return "NA")
-   - "location": (City, State of the business. If not found, return "NA")
-3. DO NOT make up or hallucinate any details. Leave the fields as "NA" if no verifiable info is found.
-4.Return only the raw JSON object with no markdown, code block, or language formatting.
-Here is the entry:
-${JSON.stringify(companyData, null, 2)}
-`;
 
 
 const enrichmentSystemPrompt = `
@@ -112,7 +101,7 @@ Guidelines:
 `;
 
 const enrichUserPrompt = (companyData) => `
-You will receive one verified commercial vehicle upfitter/installer entry.
+You will receive one verified commercial vehicle upfitter/installer entry in ${city}.
 
 Please enrich the object by adding:
 - "contactDetails": Phone number or email
@@ -157,7 +146,7 @@ ${JSON.stringify(companyData, null, 2)}
     }
     
 
-    // console.log("\n🎉 Final Enriched Array:", enrichedArray);
+    console.log("\n🎉 Final Enriched Array:", enrichedArray);
     return enrichedArray;
 
   } catch (err) {
