@@ -24,7 +24,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const fetchCityInfo = async (city) => {
   try {
     let upfitters = [];
-
+    console.log("city",city)
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       temperature: 0,
@@ -47,7 +47,7 @@ const fetchCityInfo = async (city) => {
         {
           role: 'user',
           content: `
-    Find up to 20 verified vehicle upfitters and installers in ${city} that specialize in police and emergency vehicles.
+    Find up to 20 verified vehicle upfitters and installers in ${city},US that specialize in police and emergency vehicles.
     
     Exclusion Criteria:
     - Exclude companies that only sell parts or do repairs without installation
