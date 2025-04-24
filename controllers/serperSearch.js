@@ -83,20 +83,14 @@ const filterRelevantUpfitterLinks = async (organicArray) => {
 
 
 // Function to scrape all text content from the website
-const scrapeWebsiteData = async (url) => {
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const page = await browser.newPage();
+const scrapeWebsiteData = async (page, url) => {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const textContent = await page.evaluate(() => document.body.innerText);
-    await browser.close();
-    // console.log("Scraped text content:", textContent);
     return textContent;
   } catch (error) {
-    console.error('Error scraping website:', error);
-    return 'Error scraping the website'; // Return a default error message on failure
-  } finally {
-    if (browser) await browser.close();
+    console.error('Error scraping website:', url, error.message);
+    return 'Error scraping the website';
   }
 };
 
@@ -178,6 +172,7 @@ Only return this JSON object. Do not add any extra text.
 
 // Main function to process search results in sequence
 const processUpfitterSearchResults = async (query) => {
+  let browser;
   try {
     // Step 1: Get search results from Serper API
     const organicArray = await getSearchResults(query);
@@ -187,13 +182,15 @@ const processUpfitterSearchResults = async (query) => {
     const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
     // console.log(`Filtered organic array length ${relevantUpfitters.length} ${JSON.stringify(relevantUpfitters,null,2)}`);
     // Step 3: Scrape website data and extract details using GPT
+    browser = await puppeteer.launch({ headless: 'new' });
+    const page = await browser.newPage();
     const finalResults = [];
     for (const result of relevantUpfitters) {
       const { link } = result;
 
       // Scrape the text content from the website
       // console.log("link",link)
-      const scrapedText = await scrapeWebsiteData(link);
+      const scrapedText = await scrapeWebsiteData(page, link);
       // console.log("Scraped text from website:",link," -- ", scrapedText);
       const enrichedResult = { ...result, scrapedText };
       // Get company details using GPT
