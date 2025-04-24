@@ -90,6 +90,7 @@ const scrapeWebsiteData = async (url) => {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const textContent = await page.evaluate(() => document.body.innerText);
     await browser.close();
+    // console.log("Scraped text content:", textContent);
     return textContent;
   } catch (error) {
     console.error('Error scraping website:', error);
@@ -125,6 +126,7 @@ Format your response like this:
   "companyUrl": "<URL>"
 }
 If any field is missing or unclear, return 'NA'.
+Only return this JSON object. Do not add any extra text.
 `;
 
   try {
@@ -138,22 +140,31 @@ If any field is missing or unclear, return 'NA'.
     });
 
     const content = response.choices[0].message.content.trim();
-    let extractedData = JSON.parse(content);
 
-    // Fallback replacements
+    // Extract first JSON object block using RegEx
+    const jsonMatch = content.match(/{[\s\S]*}/);
+    if (!jsonMatch) {
+      throw new Error("No valid JSON block found in GPT response");
+    }
+
+    let extractedData = JSON.parse(jsonMatch[0]);
+
+    // Fallbacks
     if (!extractedData.name || extractedData.name === 'NA') {
-      extractedData.name = title;
+      extractedData.name = title || 'NA';
     }
 
     if (!extractedData.description || extractedData.description === 'NA') {
-      extractedData.description = snippet;
+      extractedData.description = snippet || 'NA';
     }
 
-    extractedData.companyUrl = link; // Always override with actual link
+    extractedData.companyUrl = link || 'NA';
 
     return extractedData;
   } catch (error) {
-    console.error('Error extracting company details from GPT:', error);
+    console.error('Error extracting company details from GPT:', error.message);
+    console.error('Raw GPT response:', error.response?.data || 'Not available');
+
     return {
       name: title || 'NA',
       contactDetails: 'NA',
@@ -164,7 +175,6 @@ If any field is missing or unclear, return 'NA'.
     };
   }
 };
-
 
 // Main function to process search results in sequence
 const processUpfitterSearchResults = async (query) => {
@@ -182,12 +192,13 @@ const processUpfitterSearchResults = async (query) => {
       const { link } = result;
 
       // Scrape the text content from the website
+      // console.log("link",link)
       const scrapedText = await scrapeWebsiteData(link);
       // console.log("Scraped text from website:",link," -- ", scrapedText);
       const enrichedResult = { ...result, scrapedText };
       // Get company details using GPT
       const companyDetails = await getCompanyDetailsFromGPT(enrichedResult);
-
+      // console.log("companyDetails",companyDetails)
       // Push the details to the final results array
       finalResults.push(companyDetails);
     }
