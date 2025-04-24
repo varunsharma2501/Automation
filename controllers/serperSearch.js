@@ -182,7 +182,11 @@ const processUpfitterSearchResults = async (query) => {
     const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
     // console.log(`Filtered organic array length ${relevantUpfitters.length} ${JSON.stringify(relevantUpfitters,null,2)}`);
     // Step 3: Scrape website data and extract details using GPT
-    browser = await puppeteer.launch({ headless: 'new' });
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser', // Use the correct Chromium path
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] // Required in cloud environments like Render
+    });
     const page = await browser.newPage();
     const finalResults = [];
     for (const result of relevantUpfitters) {
