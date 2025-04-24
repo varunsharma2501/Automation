@@ -8,13 +8,16 @@ const writeToSheet = require("../services/writeToSheet");
 
 // Function to get search results from Serper API
 const getSearchResults = async (query) => {
-  if (!query) {
-    throw new Error('Missing search query');
-  }
+  if (!query) throw new Error('Missing search query');
 
   try {
-    const data = await searchSerper(query);
-    return data.organic || [];
+    const page1 = await searchSerper(query, 0);   // start at 0
+    const page2 = await searchSerper(query, 10);  // start at 10
+
+    const results1 = page1.organic || [];
+    const results2 = page2.organic || [];
+
+    return [...results1, ...results2]; // Combine top 20
   } catch (error) {
     throw new Error('Failed to fetch data from Serper API');
   }
@@ -27,18 +30,36 @@ const filterRelevantUpfitterLinks = async (organicArray) => {
     const { title, link, snippet } = result;
 
     const prompt = `
-Decide if this link is for a company that does vehicle upfitting (e.g., police car outfitting, van conversions, fleet installations):
-
-Title: ${title}
-Link: ${link}
-Snippet: ${snippet}
-
-Only reply:
-- "valid" → if it’s a company website doing upfitting or installation services.
-- "invalid" → if it’s a job board, review site, article, product catalog, or unrelated.
-
-Answer only with: valid or invalid.
-`;
+    You are a strict filter for business websites.
+    
+    Given a link with its title and description, decide **only** if it belongs to a company that directly performs vehicle upfitting services — such as police car outfitting, fleet vehicle installations, van conversions, or commercial/emergency vehicle customization.
+    
+    The site must clearly belong to a **business that performs upfitting work**, not directories, review platforms, job boards, articles, marketplaces, forums, or resellers.
+    
+    Examples of what should be marked as **invalid**:
+    - Godaddy parked domains or builder pages
+    - LinkedIn, Glassdoor, Yelp, or any job/review site
+    - News articles, Wikipedia, blogs
+    - Dealer listings or parts suppliers that don't do installations
+    - Product-only catalog pages
+    
+    Examples of what should be **valid**:
+    - A company website showing upfitting services or completed fleet builds
+    - Service providers with installation galleries, contact info, and service offerings
+    
+    Now evaluate:
+    
+    Title: ${title}
+    Link: ${link}
+    Snippet: ${snippet}
+    
+    Reply strictly with one of:
+    - valid
+    - invalid
+    
+    Answer only with: valid or invalid.
+    `;
+    
 
     try {
       const response = await openai.chat.completions.create({

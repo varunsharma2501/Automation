@@ -7,6 +7,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 // Validate URL syntax + reachability
 async function isValidURL(url) {
   try {
+    console.log("URL",url)
     new URL(url); // syntax check
     const response = await axios.get(url, { timeout: 5000 });
     return response.status >= 200 && response.status < 400;

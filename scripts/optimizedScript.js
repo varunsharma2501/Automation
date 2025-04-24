@@ -10,6 +10,7 @@ const CONCURRENCY_LIMIT = 20;
 async function isValidURL(url) {
   try {
     new URL(url); // Syntax check
+    console.log("url")
     const response = await axios.get(url, { timeout: 5000 });
     return response.status >= 200 && response.status < 400;
   } catch {
@@ -67,7 +68,7 @@ async function processCSV(inputFilePath, outputValidPath, outputInvalidPath) {
 
 // File paths
 const basePath = path.join(__dirname, '..', 'Excels');
-const inputFilePath = path.join(basePath, 'Upfitters - Latest-Sheet.csv');
+const inputFilePath = path.join(basePath, 'Upfitters - Cleaned sheet.csv');
 const outputValidPath = path.join(basePath, 'validCompanies.csv');
 const outputInvalidPath = path.join(basePath, 'invalidCompanies.csv');
 

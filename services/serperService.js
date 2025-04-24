@@ -1,6 +1,6 @@
 const axios = require('axios');
 require('dotenv').config();
-async function searchSerper(query) {
+async function searchSerper(query, start = 0) {
   try {
     const config = {
       method: 'post',
@@ -10,7 +10,7 @@ async function searchSerper(query) {
         'X-API-KEY': process.env.SERPER_API_KEY,
         'Content-Type': 'application/json'
       },
-      data: JSON.stringify({ q: query })
+      data: JSON.stringify({ q: query, start })
     };
 
     const response = await axios.request(config);
