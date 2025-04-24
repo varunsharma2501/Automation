@@ -1,6 +1,6 @@
 const { searchSerper } = require('../services/serperService');
 const openai = require('../config/openai.config'); // assuming OpenAI is already set up in your project
-const puppeteer = require('puppeteer-extra');
+const puppeteer = require('puppeteer');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const writeToSheet = require("../services/writeToSheet");

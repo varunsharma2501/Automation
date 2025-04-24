@@ -24,9 +24,6 @@ RUN apt-get update && apt-get install -y \
 # ✅ Check Chromium path + version in Render logs
 RUN which chromium && chromium --version
 
-# Set environment variable for Puppeteer
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
 # Set working directory
 WORKDIR /app
 
