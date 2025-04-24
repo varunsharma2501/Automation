@@ -3,6 +3,8 @@ const openai = require('../config/openai.config'); // assuming OpenAI is already
 const puppeteer = require('puppeteer');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
+
+puppeteer.use(StealthPlugin());
 const writeToSheet = require("../services/writeToSheet");
 
 
