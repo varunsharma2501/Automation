@@ -184,8 +184,8 @@ const processUpfitterSearchResults = async (query) => {
     // Step 3: Scrape website data and extract details using GPT
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser', // Use the correct Chromium path
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] // Required in cloud environments like Render
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
     const finalResults = [];
