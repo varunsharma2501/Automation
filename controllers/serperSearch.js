@@ -227,7 +227,7 @@ const getUpfittersByCities = async (req, res) => {
     });
 
     for (const city of cities) {
-      console.log(`Processing city: ${city}`);
+      console.log(`Processing city222: ${city}`);
       const query = `List all upfitters for ${city}`;
 
       try {
