@@ -172,46 +172,36 @@ Only return this JSON object. Do not add any extra text.
 };
 
 // Main function to process search results in sequence
-const processUpfitterSearchResults = async (query) => {
-  let browser;
+const processUpfitterSearchResults = async (query, browser) => {
   try {
-    // Step 1: Get search results from Serper API
     const organicArray = await getSearchResults(query);
-    // console.log(`Organic array from serper length ${organicArray.length}: ${JSON.stringify(organicArray,null,2)}`);
-
-    // Step 2: Filter relevant upfitter links based on GPT classification
     const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
-    // console.log(`Filtered organic array length ${relevantUpfitters.length} ${JSON.stringify(relevantUpfitters,null,2)}`);
-    // Step 3: Scrape website data and extract details using GPT
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      protocolTimeout: 60000,
-    });
-    
+
     const page = await browser.newPage();
     const finalResults = [];
+
     for (const result of relevantUpfitters) {
       const { link } = result;
 
-      // Scrape the text content from the website
-      // console.log("link",link)
       const scrapedText = await scrapeWebsiteData(page, link);
-      // console.log("Scraped text from website:",link," -- ", scrapedText);
       const enrichedResult = { ...result, scrapedText };
-      // Get company details using GPT
+
       const companyDetails = await getCompanyDetailsFromGPT(enrichedResult);
-      // console.log("companyDetails",companyDetails)
-      // Push the details to the final results array
       finalResults.push(companyDetails);
+
+      // ✅ Small delay to avoid rapid-fire loads (optional)
+      await new Promise((r) => setTimeout(r, 1000));
     }
-    // console.log("Final results after scraping and GPT extraction:", JSON.stringify(finalResults,null,2));
+
+    await page.close();
     return finalResults;
+
   } catch (error) {
     console.error('Error processing upfitter search results:', error);
     return [];
   }
 };
+
 
 const getUpfittersByCities = async (req, res) => {
   const { cities } = req.body;
@@ -221,23 +211,44 @@ const getUpfittersByCities = async (req, res) => {
   }
 
   const allResults = [];
+  let browser;
 
-  for (const city of cities) {
-    console.log("City")
-    const query = `List all upfitters for ${city}`;
-    try {
-      const cityResults = await processUpfitterSearchResults(query);
-      allResults.push(...cityResults); // flattening into one array
-    } catch (err) {
-      console.error(`Failed to process city "${city}":`, err.message);
+  try {
+    // Launch browser once
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--single-process',
+        '--no-zygote',
+      ],
+    });
+
+    for (const city of cities) {
+      console.log(`Processing city: ${city}`);
+      const query = `List all upfitters for ${city}`;
+
+      try {
+        const cityResults = await processUpfitterSearchResults(query, browser); // pass browser
+        allResults.push(...cityResults);
+      } catch (err) {
+        console.error(`Failed to process city "${city}":`, err.message);
+      }
     }
+
+    await writeToSheet(allResults, "Latest-Upfitters-Scrapping");
+    return res.status(200).json(allResults);
+
+  } catch (error) {
+    console.error("Error in getUpfittersByCities:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
+  } finally {
+    if (browser) await browser.close();
   }
-
-  
-  await writeToSheet(allResults, "Latest-Upfitters-Scrapping");
-
-  return res.status(200).json(allResults);
 };
+
 
 
 module.exports = { getUpfittersByCities };
