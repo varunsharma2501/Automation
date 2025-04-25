@@ -185,9 +185,10 @@ const processUpfitterSearchResults = async (query) => {
     // Step 3: Scrape website data and extract details using GPT
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      protocolTimeout: 60000,
     });
+    
     const page = await browser.newPage();
     const finalResults = [];
     for (const result of relevantUpfitters) {
@@ -222,6 +223,7 @@ const getUpfittersByCities = async (req, res) => {
   const allResults = [];
 
   for (const city of cities) {
+    console.log("City")
     const query = `List all upfitters for ${city}`;
     try {
       const cityResults = await processUpfitterSearchResults(query);
