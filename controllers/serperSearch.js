@@ -73,7 +73,7 @@ const filterRelevantUpfitterLinks = async (organicArray) => {
       if (decision === "valid") {
         filteredResults.push(result);
       }
-    } catch (err) {
+    } catch (err) {      
       console.error("OpenAI error:", err.message);
     }
   }
@@ -88,6 +88,7 @@ const scrapeWebsiteData = async (page, url) => {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const textContent = await page.evaluate(() => document.body.innerText);
+    
     return textContent;
   } catch (error) {
     console.error('Error scraping website:', url, error.message);
@@ -175,20 +176,21 @@ Only return this JSON object. Do not add any extra text.
 const processUpfitterSearchResults = async (query, browser) => {
   try {
     const organicArray = await getSearchResults(query);
-    const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
-
+    console.log(`Found ${organicArray.length} results for query: ${query}`);
+    
+    // const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
     const page = await browser.newPage();
     const finalResults = [];
 
-    for (const result of relevantUpfitters) {
+    for (const result of organicArray) {
       const { link } = result;
 
       const scrapedText = await scrapeWebsiteData(page, link);
       const enrichedResult = { ...result, scrapedText };
-
-      const companyDetails = await getCompanyDetailsFromGPT(enrichedResult);
-      finalResults.push(companyDetails);
-
+      // const companyDetails = await getCompanyDetailsFromGPT(enrichedResult);
+      // finalResults.push(companyDetails);
+      finalResults.push(enrichedResult); // For testing, push the raw result
+      
       // ✅ Small delay to avoid rapid-fire loads (optional)
       await new Promise((r) => setTimeout(r, 1000));
     }
@@ -238,7 +240,7 @@ const getUpfittersByCities = async (req, res) => {
       }
     }
 
-    await writeToSheet(allResults, "Latest-Upfitters-Scrapping");
+    // await writeToSheet(allResults, "Latest-Upfitters-Scrapping");
     return res.status(200).json(allResults);
 
   } catch (error) {
