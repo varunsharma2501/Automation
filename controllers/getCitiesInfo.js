@@ -1,7 +1,7 @@
+const { writeToSheet } = require("../services/google.sheet.service");
 const { fetchCityInfo } = require("../services/openai.service");
 const {filterResponsesByValidURL,validateResponsesByCompanyUrl}=require("./filterValidCompanies")
 const updateMissingInfo=require("./populatePhoneCompanyUrl")
-const writeToSheet = require("../services/writeToSheet");
 const { response } = require("express");
 
 const BATCH_SIZE = 10;
