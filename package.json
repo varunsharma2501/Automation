@@ -24,6 +24,7 @@
     "json2csv": "^6.0.0-alpha.2",
     "openai": "^4.93.0",
     "puppeteer": "^24.7.2",
+    "puppeteer-cluster": "^0.24.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
 
