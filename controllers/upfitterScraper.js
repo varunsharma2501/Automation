@@ -10,7 +10,7 @@ puppeteer.use(StealthPlugin());
 
 const CONFIG = {
   clusterConcurrency: 5,
-  headless: true
+  headless: new
 };
 
 async function initCluster() {
