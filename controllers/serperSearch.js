@@ -1,256 +1,169 @@
-const { searchSerper } = require('../services/serperService');
-const openai = require('../config/openai.config'); // assuming OpenAI is already set up in your project
-const puppeteer = require('puppeteer-extra'); // Use puppeteer-extra instead of puppeteer
+const { isUpfitterBusiness, extractCompanyDetails } = require('../services/openai.service');
+const { searchSerper } = require('../services/serper.service.js');
+const { writeToSheet } = require('../services/google.sheet.service.js');
+const { Cluster } = require('puppeteer-cluster');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-puppeteer.use(StealthPlugin()); // Apply stealth plugin to puppeteer-extra
+const puppeteer = require('puppeteer-extra');
+const { v4: uuidv4 } = require('uuid');
 
-const writeToSheet = require("../services/writeToSheet");
+// Apply stealth plugin
+puppeteer.use(StealthPlugin());
 
-
-// Function to get search results from Serper API
-const getSearchResults = async (query) => {
-  if (!query) throw new Error('Missing search query');
-
-  try {
-    const page1 = await searchSerper(query, 0);   // start at 0
-    const page2 = await searchSerper(query, 10);  // start at 10
-
-    const results1 = page1.organic || [];
-    const results2 = page2.organic || [];
-
-    return [...results1, ...results2]; // Combine top 20
-  } catch (error) {
-    throw new Error('Failed to fetch data from Serper API');
-  }
+const CONFIG = {
+  maxResultsPerCity: 20,
+  clusterConcurrency: 5,
+  minDelay: 2000,
+  maxDelay: 5000,
+  navigationTimeout: 30000,
+  headless: true,
+  openAIConcurrency: 5
 };
 
-const filterRelevantUpfitterLinks = async (organicArray) => {
-  const filteredResults = [];
+// Random delay to avoid hitting services too quickly
+const randomDelay = () => new Promise(resolve =>
+  setTimeout(resolve, CONFIG.minDelay + Math.random() * (CONFIG.maxDelay - CONFIG.minDelay))
+);
 
-  for (const result of organicArray) {
-    const { title, link, snippet } = result;
-
-    const prompt = `
-    You are a strict filter for business websites.
-    
-    Given a link with its title and description, decide **only** if it belongs to a company that directly performs vehicle upfitting services — such as police car outfitting, fleet vehicle installations, van conversions, or commercial/emergency vehicle customization.
-    
-    The site must clearly belong to a **business that performs upfitting work**, not directories, review platforms, job boards, articles, marketplaces, forums, or resellers.
-    
-    Examples of what should be marked as **invalid**:
-    - Godaddy parked domains or builder pages
-    - LinkedIn, Glassdoor, Yelp, or any job/review site
-    - News articles, Wikipedia, blogs
-    - Dealer listings or parts suppliers that don't do installations
-    - Product-only catalog pages
-    
-    Examples of what should be **valid**:
-    - A company website showing upfitting services or completed fleet builds
-    - Service providers with installation galleries, contact info, and service offerings
-    
-    Now evaluate:
-    
-    Title: ${title}
-    Link: ${link}
-    Snippet: ${snippet}
-    
-    Reply strictly with one of:
-    - valid
-    - invalid
-    
-    Answer only with: valid or invalid.
-    `;
-    
-
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
-      });
-
-      const decision = response.choices[0].message.content.trim().toLowerCase();
-      if (decision === "valid") {
-        filteredResults.push(result);
-      }
-    } catch (err) {      
-      console.error("OpenAI error:", err.message);
-    }
-  }
-
-  return filteredResults;
-};
-
-
-
-// Function to scrape all text content from the website
-const scrapeWebsiteData = async (page, url) => {
-  try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    const textContent = await page.evaluate(() => document.body.innerText);
-    
-    return textContent;
-  } catch (error) {
-    console.error('Error scraping website:', url, error.message);
-    return 'Error scraping the website';
-  }
-};
-
-// Function to ask GPT for the structured company data from scraped text
-const getCompanyDetailsFromGPT = async (upfitterObject) => {
-  const { scrapedText, title, snippet, link } = upfitterObject;
-
-  const prompt = `
-I have the following text from a company's website:
-
-"${scrapedText}"
-
-Please extract the following details:
-1. Company Name
-2. Contact Details (Phone, Email, etc.)
-3. Location
-4. Description of the company
-5. Owner Name
-
-Format your response like this:
-{
-  "name": "<Company Name>",
-  "contactDetails": "<Contact Information>",
-  "location": "<Location>",
-  "description": "<Description>",
-  "ownerName": "<Owner Name>",
-  "companyUrl": "<URL>"
+// Initialize Puppeteer Cluster
+async function initCluster() {
+  return await Cluster.launch({
+    concurrency: Cluster.CONCURRENCY_CONTEXT,
+    maxConcurrency: CONFIG.clusterConcurrency,
+    puppeteer,
+    puppeteerOptions: {
+      headless: CONFIG.headless,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    },
+    monitor: false
+  });
 }
-If any field is missing or unclear, return 'NA'.
-Only return this JSON object. Do not add any extra text.
-`;
 
+// Scrape website text content
+async function scrapeWebsite(cluster, url) {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are an expert business data extractor.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0,
+    const scrapedText = await cluster.execute({ url }, async ({ page, data }) => {
+      await page.setDefaultNavigationTimeout(CONFIG.navigationTimeout);
+      await page.setRequestInterception(true);
+      page.on('request', req =>
+        ['image', 'stylesheet', 'font'].includes(req.resourceType()) ? req.abort() : req.continue()
+      );
+
+      await page.goto(data.url, { waitUntil: 'domcontentloaded' });
+      await page.evaluate(() => {
+        document.querySelectorAll('script, style, iframe').forEach(el => el.remove());
+      });
+      return await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').trim());
     });
 
-    const content = response.choices[0].message.content.trim();
-
-    // Extract first JSON object block using RegEx
-    const jsonMatch = content.match(/{[\s\S]*}/);
-    if (!jsonMatch) {
-      throw new Error("No valid JSON block found in GPT response");
-    }
-
-    let extractedData = JSON.parse(jsonMatch[0]);
-
-    // Fallbacks
-    if (!extractedData.name || extractedData.name === 'NA') {
-      extractedData.name = title || 'NA';
-    }
-
-    if (!extractedData.description || extractedData.description === 'NA') {
-      extractedData.description = snippet || 'NA';
-    }
-
-    extractedData.companyUrl = link || 'NA';
-
-    return extractedData;
-  } catch (error) {
-    console.error('Error extracting company details from GPT:', error.message);
-    console.error('Raw GPT response:', error.response?.data || 'Not available');
-
-    return {
-      name: title || 'NA',
-      contactDetails: 'NA',
-      location: 'NA',
-      description: snippet || 'NA',
-      ownerName: 'NA',
-      companyUrl: link || 'NA'
-    };
+    return scrapedText;
+  } catch (err) {
+    console.error(`Error scraping ${url}: ${err.message}`);
+    return null;
   }
-};
+}
 
-// Main function to process search results in sequence
-const processUpfitterSearchResults = async (query, browser) => {
+// Process a single city with concurrency control
+async function processCity(cluster, city, index, total, openAiLimit) {
+  console.log(`Processing city ${index + 1}/${total}: ${city}`);
   try {
-    const organicArray = await getSearchResults(query);
-    console.log(`Found ${organicArray.length} results for query: ${query}`);
-    
-    // const relevantUpfitters = await filterRelevantUpfitterLinks(organicArray);
-    const page = await browser.newPage();
-    const finalResults = [];
+    const query = `Upfitters in ${city}`;
+    const searchResults = await searchSerper(query, 0);
+    const organicResults = searchResults.organic || [];
 
-    for (const result of organicArray) {
-      const { link } = result;
-
-      const scrapedText = await scrapeWebsiteData(page, link);
-      const enrichedResult = { ...result, scrapedText };
-      // const companyDetails = await getCompanyDetailsFromGPT(enrichedResult);
-      // finalResults.push(companyDetails);
-      finalResults.push(enrichedResult); // For testing, push the raw result
-      
-      // ✅ Small delay to avoid rapid-fire loads (optional)
-      await new Promise((r) => setTimeout(r, 1000));
+    if (organicResults.length === 0) {
+      console.log(`No results found for ${city}`);
+      return [];
     }
 
-    await page.close();
-    return finalResults;
+    // Filter and process results in batches
+    const filtered = [];
+    for (let i = 0; i < organicResults.length; i++) {
+      const result = organicResults[i];
+      await openAiLimit(async () => {
+        const isRelevant = await isUpfitterBusiness(result.title, result.snippet, result.link);
+        if (isRelevant) filtered.push(result);
+        await randomDelay();
+      });
+    }
 
-  } catch (error) {
-    console.error('Error processing upfitter search results:', error);
+    const cityData = [];
+    const limitedResults = filtered.slice(0, CONFIG.maxResultsPerCity);
+
+    // Process results to scrape content
+    for (const result of limitedResults) {
+      try {
+        const content = await scrapeWebsite(cluster, result.link);
+        if (!content) continue;
+
+        const company = await extractCompanyDetails({
+          scrapedText: content,
+          title: result.title,
+          snippet: result.snippet,
+          link: result.link
+        });
+
+        company.city = city;
+        cityData.push(company);
+        await randomDelay();
+      } catch (err) {
+        console.error(`Error processing ${result.link}: ${err.message}`);
+      }
+    }
+
+    console.log(`Processed ${cityData.length} upfitters for ${city}`);
+    return cityData;
+  } catch (err) {
+    console.error(`Error processing city ${city}: ${err.message}`);
     return [];
   }
-};
+}
 
-
-const getUpfittersByCities = async (req, res) => {
+// Controller: get upfitters by cities
+async function getUpfittersByCities(req, res) {
   const { cities } = req.body;
+  const requestId = uuidv4().slice(0, 8);
 
   if (!Array.isArray(cities) || cities.length === 0) {
-    return res.status(400).json({ error: "Please provide a non-empty array of cities in the request body." });
+    return res.status(400).json({
+      error: "Please provide a non-empty array of cities",
+      example: { cities: ["New York", "Los Angeles"] }
+    });
   }
+
+  console.log(`[${requestId}] Starting job for ${cities.length} cities`);
 
   const allResults = [];
-  let browser;
+  const openAiLimit = (fn) => fn(); 
+  const cluster = await initCluster();
 
   try {
-    // Launch browser once
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--single-process',
-        '--no-zygote',
-      ],
-    });
-
-    for (const city of cities) {
-      console.log(`Processing city222: ${city}`);
-      const query = `List all upfitters for ${city}`;
-
-      try {
-        const cityResults = await processUpfitterSearchResults(query, browser); // pass browser
-        allResults.push(...cityResults);
-      } catch (err) {
-        console.error(`Failed to process city "${city}":`, err.message);
-      }
+    // Process cities concurrently but in controlled batches
+    const chunkSize = 3; 
+    for (let i = 0; i < cities.length; i += chunkSize) {
+      const chunk = cities.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(chunk.map((city, index) =>
+        processCity(cluster, city, index + i, cities.length, openAiLimit)
+      ));
+      allResults.push(...chunkResults.flat());
     }
 
-    // await writeToSheet(allResults, "Latest-Upfitters-Scrapping");
-    return res.status(200).json(allResults);
-
+    await writeToSheet(allResults, `Upfitters`);
+    res.status(200).json({
+      requestId,
+      totalCities: cities.length,
+      resultsFound: allResults.length,
+      data: allResults
+    });
   } catch (error) {
-    console.error("Error in getUpfittersByCities:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error(`[${requestId}] Error: ${error.message}`);
+    res.status(500).json({
+      requestId,
+      error: "Processing failed",
+      message: error.message
+    });
   } finally {
-    if (browser) await browser.close();
+    await cluster.close();
   }
-};
-
-
+}
 
 module.exports = { getUpfittersByCities };
