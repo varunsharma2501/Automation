@@ -1,0 +1,89 @@
+const { google } = require("googleapis");
+const { GoogleAuth } = require("google-auth-library");
+require("dotenv").config();
+
+const googleAuth = {
+  type: "service_account",
+  project_id: process.env.GOOGLE_PROJECT_ID,
+  private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') ,
+  client_email: process.env.GOOGLE_CLIENT_EMAIL,
+  client_id: process.env.GOOGLE_CLIENT_ID,
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+  universe_domain: "googleapis.com"
+};
+
+
+const writeToSheet = async (data, sheetName) => {
+  try {
+    const auth = new GoogleAuth({
+      credentials: googleAuth,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+    });
+
+    const sheetExists = spreadsheet.data.sheets.some(
+      (sheet) => sheet.properties.title === sheetName
+    );
+
+    if (!sheetExists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    const headers = ["name", "companyUrl", "contactDetails", "description", "ownerName", "location", "city"];
+
+    const values = data.map((row) =>
+      headers.map((key) => {
+        const value = row[key];
+        if (typeof value === 'object') {
+          return JSON.stringify(value); // <-- Convert nested objects to JSON string
+        }
+        return value || "";
+      })
+    );
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `'${sheetName}'!A1:Z1000`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `'${sheetName}'!A1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [headers, ...values],
+      },
+    });
+
+    console.log("✅ Successfully wrote data to Google Sheet!");
+  } catch (error) {
+    console.error("❌ Failed to write to Google Sheet:", error.message);
+    throw error; // Rethrow so getUpfittersByCities knows writing failed
+  }
+};
+ module.exports = {
+  writeToSheet,
+ }
