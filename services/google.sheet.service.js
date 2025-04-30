@@ -1,89 +1,74 @@
-const { google } = require("googleapis");
-const { GoogleAuth } = require("google-auth-library");
-require("dotenv").config();
+// upfitter.controller.js
+const { writeToSheet } = require('../services/google.sheet.service.js');
+const { processCity } = require('../services/upfitter.processor.service.js');
+const { Cluster } = require('puppeteer-cluster');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer-extra');
+const { v4: uuidv4 } = require('uuid');
 
-const googleAuth = {
-  type: "service_account",
-  project_id: process.env.GOOGLE_PROJECT_ID,
-  private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') ,
-  client_email: process.env.GOOGLE_CLIENT_EMAIL,
-  client_id: process.env.GOOGLE_CLIENT_ID,
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
-  universe_domain: "googleapis.com"
+puppeteer.use(StealthPlugin());
+
+const CONFIG = {
+  clusterConcurrency: 5,
+  headless: true
 };
 
+async function initCluster() {
+  return await Cluster.launch({
+    concurrency: Cluster.CONCURRENCY_CONTEXT,
+    maxConcurrency: CONFIG.clusterConcurrency,
+    puppeteer,
+    puppeteerOptions: {
+      headless: CONFIG.headless,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    },
+    monitor: false
+  });
+}
 
-const writeToSheet = async (data, sheetName) => {
+async function getUpfittersByCities(req, res) {
+  const { cities } = req.body;
+  const requestId = uuidv4().slice(0, 8);
+
+  if (!Array.isArray(cities) || cities.length === 0) {
+    return res.status(400).json({
+      error: "Please provide a non-empty array of cities",
+      example: { cities: ["New York", "Los Angeles"] }
+    });
+  }
+
+  console.log(`[${requestId}] Job started for ${cities.length} cities`);
+  const allResults = [];
+  const openAiLimit = (fn) => fn(); 
+  const cluster = await initCluster();
+
   try {
-    const auth = new GoogleAuth({
-      credentials: googleAuth,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: "v4", auth: client });
-
-    const spreadsheet = await sheets.spreadsheets.get({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-    });
-
-    const sheetExists = spreadsheet.data.sheets.some(
-      (sheet) => sheet.properties.title === sheetName
-    );
-
-    if (!sheetExists) {
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: process.env.SPREADSHEET_ID,
-        requestBody: {
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: sheetName,
-                },
-              },
-            },
-          ],
-        },
-      });
+    const chunkSize = 5;
+    for (let i = 0; i < cities.length; i += chunkSize) {
+      const chunk = cities.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(chunk.map((city, idx) =>
+        processCity(cluster, city, i + idx, cities.length, openAiLimit)
+      ));
+      allResults.push(...chunkResults.flat());
     }
 
-    const headers = ["name", "companyUrl", "contactDetails", "description", "ownerName", "location", "city"];
-
-    const values = data.map((row) =>
-      headers.map((key) => {
-        const value = row[key];
-        if (typeof value === 'object') {
-          return JSON.stringify(value); // <-- Convert nested objects to JSON string
-        }
-        return value || "";
-      })
-    );
-
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `'${sheetName}'!A1:Z1000`,
+    await writeToSheet(allResults, requestId);
+    res.status(200).json({
+      requestId,
+      totalCities: cities.length,
+      resultsFound: allResults.length,
+      data: allResults
     });
-
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `'${sheetName}'!A1`,
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [headers, ...values],
-      },
-    });
-
-    console.log("✅ Successfully wrote data to Google Sheet!");
   } catch (error) {
-    console.error("❌ Failed to write to Google Sheet:", error.message);
-    throw error; // Rethrow so getUpfittersByCities knows writing failed
+    console.error(`[${requestId}] Error: ${error.message}`);
+    res.status(500).json({
+      requestId,
+      error: "Processing failed",
+      message: error.message
+    });
+  } finally {
+    await cluster.close();
   }
-};
- module.exports = {
-  writeToSheet,
- }
+}
+
+module.exports = { getUpfittersByCities };
