@@ -42,7 +42,9 @@ async function processCity(cluster, city, index, total, openAiLimit) {
   try {
     const query = `Upfitters in ${city}`;
     const results = await searchSerper(query, 0);
-    const organic = results.organic || [];
+    const result_2 =await searchSerper(query, 10);
+    const results = [ ...result_1.organic, ...result_2.organic ]
+    const organic = results || [];
 
     if (organic.length === 0) {
       console.log(`No results for ${city}`);
