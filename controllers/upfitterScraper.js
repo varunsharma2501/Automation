@@ -43,7 +43,7 @@ async function getUpfittersByCities(req, res) {
   const cluster = await initCluster();
 
   try {
-    const chunkSize = 3;
+    const chunkSize = 5;
     for (let i = 0; i < cities.length; i += chunkSize) {
       const chunk = cities.slice(i, i + chunkSize);
       const chunkResults = await Promise.all(chunk.map((city, idx) =>
@@ -52,7 +52,7 @@ async function getUpfittersByCities(req, res) {
       allResults.push(...chunkResults.flat());
     }
 
-    await writeToSheet(allResults, `Upfitters`);
+    await writeToSheet(allResults, requestId);
     res.status(200).json({
       requestId,
       totalCities: cities.length,
