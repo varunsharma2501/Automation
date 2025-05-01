@@ -1,15 +1,15 @@
 // upfitter.controller.js
-const { writeToSheet } = require('../services/google.sheet.service.js');
 const { processCity } = require('../services/upfitter.processor.service.js');
 const { Cluster } = require('puppeteer-cluster');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const puppeteer = require('puppeteer-extra');
 const { v4: uuidv4 } = require('uuid');
+const { writeToSheet } = require('../services/google.sheet.service.js');
 
 puppeteer.use(StealthPlugin());
 
 const CONFIG = {
-  clusterConcurrency: 5,
+  clusterConcurrency: 20,
   headless: true
 };
 
@@ -43,7 +43,7 @@ async function getUpfittersByCities(req, res) {
   const cluster = await initCluster();
 
   try {
-    const chunkSize = 5;
+    const chunkSize = 15;
     for (let i = 0; i < cities.length; i += chunkSize) {
       const chunk = cities.slice(i, i + chunkSize);
       const chunkResults = await Promise.all(chunk.map((city, idx) =>
