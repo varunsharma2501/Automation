@@ -3,11 +3,11 @@ const { isUpfitterBusiness, extractCompanyDetails } = require('../services/opena
 const { searchSerper } = require('../services/serper.service.js');
 
 const CONFIG = {
-  maxResultsPerCity: 20,
+  maxResultsPerCity: 10,
   minDelay: 2000,
   maxDelay: 5000,
   navigationTimeout: 30000,
-  openAIConcurrency: 5
+  openAIConcurrency: 10
 };
 
 const randomDelay = () => new Promise(resolve =>
