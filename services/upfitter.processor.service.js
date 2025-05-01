@@ -36,6 +36,7 @@ async function scrapeWebsite(cluster, url) {
     return null;
   }
 }
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function processCity(cluster, city, index, total, openAiLimit) {
   console.log(`Processing city ${index + 1}/${total}: ${city}`);
