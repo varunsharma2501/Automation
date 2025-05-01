@@ -39,11 +39,17 @@ async function getUpfittersByCities(req, res) {
 
   console.log(`[${requestId}] Job started for ${cities.length} cities`);
   const allResults = [];
-  const openAiLimit = (fn) => fn(); 
+  const openAiLimit = (fn) => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      fn().then(resolve).catch(reject);
+    }, 1000); 
+  });
+};
   const cluster = await initCluster();
 
   try {
-    const chunkSize = 15;
+    const chunkSize = 10;
     for (let i = 0; i < cities.length; i += chunkSize) {
       const chunk = cities.slice(i, i + chunkSize);
       const chunkResults = await Promise.all(chunk.map((city, idx) =>
