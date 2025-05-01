@@ -36,15 +36,12 @@ async function scrapeWebsite(cluster, url) {
     return null;
   }
 }
-const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function processCity(cluster, city, index, total, openAiLimit) {
   console.log(`Processing city ${index + 1}/${total}: ${city}`);
   try {
     const query = `Upfitters in ${city}`;
-    await delay(250);
     const result_1 = await searchSerper(query, 0);
-    await delay(250);
     const result_2 =await searchSerper(query, 10);
     const results = [ ...result_1.organic, ...result_2.organic ]
     const organic = results || [];
