@@ -1,74 +1,77 @@
-// upfitter.controller.js
-const { writeToSheet } = require('../services/google.sheet.service.js');
-const { processCity } = require('../services/upfitter.processor.service.js');
-const { Cluster } = require('puppeteer-cluster');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const puppeteer = require('puppeteer-extra');
-const { v4: uuidv4 } = require('uuid');
+const { google } = require("googleapis");
+const { GoogleAuth } = require("google-auth-library");
+require("dotenv").config();
 
-puppeteer.use(StealthPlugin());
-
-const CONFIG = {
-  clusterConcurrency: 5,
-  headless: true
+const googleAuth = {
+  type: "service_account",
+  project_id: process.env.GOOGLE_PROJECT_ID,
+  private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  client_email: process.env.GOOGLE_CLIENT_EMAIL,
+  client_id: process.env.GOOGLE_CLIENT_ID,
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+  universe_domain: "googleapis.com"
 };
 
-async function initCluster() {
-  return await Cluster.launch({
-    concurrency: Cluster.CONCURRENCY_CONTEXT,
-    maxConcurrency: CONFIG.clusterConcurrency,
-    puppeteer,
-    puppeteerOptions: {
-      headless: CONFIG.headless,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    },
-    monitor: false
-  });
-}
-
-async function getUpfittersByCities(req, res) {
-  const { cities } = req.body;
-  const requestId = uuidv4().slice(0, 8);
-
-  if (!Array.isArray(cities) || cities.length === 0) {
-    return res.status(400).json({
-      error: "Please provide a non-empty array of cities",
-      example: { cities: ["New York", "Los Angeles"] }
-    });
-  }
-
-  console.log(`[${requestId}] Job started for ${cities.length} cities`);
-  const allResults = [];
-  const openAiLimit = (fn) => fn(); 
-  const cluster = await initCluster();
-
+const writeToSheet = async (data, apiId) => {
   try {
-    const chunkSize = 5;
-    for (let i = 0; i < cities.length; i += chunkSize) {
-      const chunk = cities.slice(i, i + chunkSize);
-      const chunkResults = await Promise.all(chunk.map((city, idx) =>
-        processCity(cluster, city, i + idx, cities.length, openAiLimit)
-      ));
-      allResults.push(...chunkResults.flat());
-    }
-
-    await writeToSheet(allResults, requestId);
-    res.status(200).json({
-      requestId,
-      totalCities: cities.length,
-      resultsFound: allResults.length,
-      data: allResults
+    const auth = new GoogleAuth({
+      credentials: googleAuth,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+
+    // Generate sheet name using the apiId and current timestamp to ensure uniqueness
+    const sheetName = `upfitter-${apiId}`;
+
+    // Create the new sheet
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    const headers = ["name", "companyUrl", "contactDetails", "description", "ownerName", "location", "city"];
+    const values = data.map((row) =>
+      headers.map((key) => {
+        const value = row[key];
+        return typeof value === "object" ? JSON.stringify(value) : value || "";
+      })
+    );
+
+    // Write data to the new sheet
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${sheetName}'!A1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [headers, ...values],
+      },
+    });
+
+    console.log(`✅ Data written to new sheet: ${sheetName}`);
   } catch (error) {
-    console.error(`[${requestId}] Error: ${error.message}`);
-    res.status(500).json({
-      requestId,
-      error: "Processing failed",
-      message: error.message
-    });
-  } finally {
-    await cluster.close();
+    console.error("❌ Failed to write to Google Sheet:", error.message);
+    throw error;
   }
-}
+};
 
-module.exports = { getUpfittersByCities };
+module.exports = {
+  writeToSheet
+};
