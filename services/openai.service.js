@@ -198,7 +198,7 @@ async function isUpfitterBusiness(title, snippet, link) {
   `;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
+    model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
   });
@@ -235,7 +235,7 @@ Only return this JSON object. Do not add any extra text.
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: 'You are an expert business data extractor. ONLY return a valid JSON object with double quotes. No markdown or extra text.' },
         { role: 'user', content: prompt }
